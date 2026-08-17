@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use serenity::Result;
+use serenity::{Error::Model, Result, all::ModelError};
 use tokio::time::sleep;
 
 /// Helper struct for constructing multiple-message responses with convincing typing times
@@ -59,9 +59,18 @@ impl<'a> ResponseHelper<'a> {
 
     /// Send the message, failing silently
     pub async fn say(&mut self) {
-        self.try_say().await.unwrap_or_else(|err| {
-            eprintln!("Failed to send message: {:?}", err);
-        });
+        match self.try_say().await {
+            Ok(_) => {}
+            Err(Model(ModelError::MessageTooLong(_))) => {
+                self.response = vec!["Message too long to send.".to_string()];
+                self.try_say().await.unwrap_or_else(|err| {
+                    eprintln!("Failed to send message: {:?}", err);
+                });
+            }
+            Err(err) => {
+                eprintln!("Failed to send message: {:?}", err);
+            }
+        }
     }
 
     /// Send the message, returning an error upon failure
@@ -75,7 +84,7 @@ impl<'a> ResponseHelper<'a> {
             sleep(Duration::from_millis(300)).await;
             let typing = channel.start_typing(&self.ctx.http);
 
-            sleep(Duration::from_millis((message.len().isqrt() * 200) as u64)).await;
+            sleep(Duration::from_millis((message.len().isqrt() * 50) as u64)).await;
             typing.stop();
             match self.reply_mode {
                 ReplyMode::NoReply => channel.say(&self.ctx.http, message).await?,
