@@ -50,7 +50,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
                 .unwrap_or_else(|err| format!("Error: {}", err));
 
                 ResponseHelper::new(usr, msg)
-                    // .no_reply()
+                    .no_reply()
                     .push(response)
                     .say()
                     .await;
@@ -74,7 +74,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
         .await
         .unwrap_or_else(|err| format!("Error: {}", err));
         ResponseHelper::new(usr, msg)
-            .no_reply()
+            // .no_reply()
             .push(response)
             .say()
             .await;
