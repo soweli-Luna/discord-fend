@@ -1,0 +1,12 @@
+[package]
+name = "discord-fend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+documented = "0.10.0"
+dotenv = "0.15.0"
+fend-core = "1.5.8"
+rand = "0.10.2"
+serenity = "0.12.5"
+tokio = { version = "1.53.1", features = ["rt-multi-thread"] }
