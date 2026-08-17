@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: Vec<String>) {
-    let args = args.join(" ");
+    let args = args.join(" ").replace(&['\n', '\r', '`'][..], " ");
 
     if args.is_empty() {
         // no args, make an interactive session
@@ -42,6 +42,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
 
                 let response = tokio::task::spawn_blocking(move || {
                     let mut fend_context = fend_core::Context::new();
+                    fend_context.set_output_mode_terminal();
                     fend_context.set_random_u32_fn(random_u32);
 
                     fend_run(&expr.content, &mut fend_context)
@@ -67,6 +68,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
         // args given, just evaluate the expression
         let response = tokio::task::spawn_blocking(move || {
             let mut fend_context = fend_core::Context::new();
+            fend_context.set_output_mode_terminal();
             fend_context.set_random_u32_fn(random_u32);
 
             fend_run(&args, &mut fend_context)
