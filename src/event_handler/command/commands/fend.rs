@@ -8,10 +8,7 @@ use crate::{
 };
 
 pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: Vec<String>) {
-    let mut fend_context = fend_core::Context::new();
     let args = args.join(" ");
-
-    fend_context.set_random_u32_fn(random_u32);
 
     if args.is_empty() {
         // no args, make an interactive session
@@ -41,7 +38,17 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
                     break;
                 }
 
-                let response = fend_run(&expr.content, &mut fend_context);
+                // let response = fend_run(&expr.content, &mut fend_context);
+
+                let response = tokio::task::spawn_blocking(move || {
+                    let mut fend_context = fend_core::Context::new();
+                    fend_context.set_random_u32_fn(random_u32);
+
+                    fend_run(&expr.content, &mut fend_context)
+                })
+                .await
+                .unwrap_or_else(|err| format!("Error: {}", err));
+
                 ResponseHelper::new(usr, msg)
                     // .no_reply()
                     .push(response)
@@ -58,7 +65,14 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
         }
     } else {
         // args given, just evaluate the expression
-        let response = fend_run(&args, &mut fend_context);
+        let response = tokio::task::spawn_blocking(move || {
+            let mut fend_context = fend_core::Context::new();
+            fend_context.set_random_u32_fn(random_u32);
+
+            fend_run(&args, &mut fend_context)
+        })
+        .await
+        .unwrap_or_else(|err| format!("Error: {}", err));
         ResponseHelper::new(usr, msg)
             .no_reply()
             .push(response)
