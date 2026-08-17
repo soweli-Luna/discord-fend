@@ -1,4 +1,4 @@
-use std::vec;
+use std::{format, vec};
 
 use fend_core::SpanRef;
 
@@ -8,9 +8,11 @@ use crate::{
 };
 
 pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: Vec<String>) {
-    let args = args.join(" ").replace(&['\n', '\r', '`'][..], " ");
+    let args = args.join(" ").replace(['`'], " ");
 
-    if args.is_empty() {
+    let lines = args.lines().map(String::from).collect::<Vec<_>>();
+
+    if lines.is_empty() {
         // no args, make an interactive session
         let closure = async |session: &mut InteractiveSession| {
             ResponseHelper::new(usr, msg)
@@ -45,7 +47,26 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
                     fend_context.set_output_mode_terminal();
                     fend_context.set_random_u32_fn(random_u32);
 
-                    fend_run(&expr.content, &mut fend_context)
+                    let lines = expr
+                        .content
+                        .replace(['`'], " ")
+                        .lines()
+                        .map(String::from)
+                        .collect::<Vec<_>>();
+
+                    let mut output_buffer = String::new();
+
+                    let multiline = lines.len() > 1;
+
+                    for line in lines {
+                        let response = fend_run(&line, &mut fend_context);
+                        if multiline {
+                            output_buffer.push_str(&format!("> {}\n", line));
+                        }
+                        output_buffer.push_str(&format!("{response}\n"));
+                    }
+
+                    output_buffer
                 })
                 .await
                 .unwrap_or_else(|err| format!("Error: {}", err));
@@ -71,7 +92,19 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
             fend_context.set_output_mode_terminal();
             fend_context.set_random_u32_fn(random_u32);
 
-            fend_run(&args, &mut fend_context)
+            let mut output_buffer = String::new();
+
+            let multiline = lines.len() > 1;
+
+            for line in lines {
+                let response = fend_run(&line, &mut fend_context);
+                if multiline {
+                    output_buffer.push_str(&format!("> {}\n", line));
+                }
+                output_buffer.push_str(&format!("{response}\n"));
+            }
+
+            output_buffer
         })
         .await
         .unwrap_or_else(|err| format!("Error: {}", err));
