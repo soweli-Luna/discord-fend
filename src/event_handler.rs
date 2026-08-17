@@ -19,6 +19,9 @@ impl EventHandler for Handler {
     // dispatched simultaneously.
     async fn message(&self, _: Context, msg: Message) {
         if let Some((command, args)) = command::try_find_command(&msg).await {
+            if msg.author.bot {
+                return;
+            }
             command::handle(command, args, msg.clone(), msg.author).await;
             return;
         }
