@@ -60,7 +60,7 @@ impl<'a> ResponseHelper<'a> {
     /// Send the message, failing silently
     pub async fn say(&mut self) {
         self.try_say().await.unwrap_or_else(|err| {
-            eprintln!("Failed to send message: {}", err);
+            eprintln!("Failed to send message: {:?}", err);
         });
     }
 
