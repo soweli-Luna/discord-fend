@@ -43,7 +43,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
 
                 let response = fend_run(&expr.content, &mut fend_context);
                 ResponseHelper::new(usr, msg)
-                    .no_reply()
+                    // .no_reply()
                     .push(response)
                     .say()
                     .await;
