@@ -1,4 +1,4 @@
-use std::{format, vec};
+use std::{char, format, vec};
 
 use fend_core::SpanRef;
 
@@ -19,7 +19,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
     let lines = args
         .lines()
         .map(String::from)
-        .filter(|l| !l.is_empty())
+        .filter(|l| !l.trim_matches(char::is_whitespace).is_empty())
         .collect::<Vec<_>>();
 
     if lines.is_empty() {
