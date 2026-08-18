@@ -16,7 +16,11 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
         .trim()
         .replace(['`'], " ");
 
-    let lines = args.lines().map(String::from).collect::<Vec<_>>();
+    let lines = args
+        .lines()
+        .map(String::from)
+        .filter(|l| !l.is_empty())
+        .collect::<Vec<_>>();
 
     if lines.is_empty() {
         // no args, make an interactive session
@@ -145,7 +149,8 @@ fn render_spans<'a, T: Iterator<Item = SpanRef<'a>>>(spans: T) -> String {
         buf.push_str(&ansi_color::format(span.string(), style));
     }
 
-    format!("```ansi\n{}\n```", buf).to_string()
+    // format!("```ansi\n{}\n```", buf).to_string()
+    buf
 }
 
 fn random_u32() -> u32 {
