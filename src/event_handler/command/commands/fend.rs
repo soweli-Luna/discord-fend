@@ -7,8 +7,14 @@ use crate::{
     utils::ansi_color,
 };
 
-pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: Vec<String>) {
-    let args = args.join(" ").replace(['`'], " ");
+pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args: Vec<String>) {
+    // let args = args.join(" ").replace(['`'], " ");
+    let args = msg
+        .content
+        .strip_prefix("~fend")
+        .unwrap_or("")
+        .trim()
+        .replace(['`'], " ");
 
     let lines = args.lines().map(String::from).collect::<Vec<_>>();
 
@@ -21,7 +27,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
                 .await;
 
             loop {
-                let expr = match session.get_response().await {
+                let response = match session.get_response().await {
                     Some(expr) => expr,
                     None => {
                         ResponseHelper::new(usr, msg)
@@ -32,7 +38,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
                     }
                 };
 
-                if expr.content == "exit" || expr.content == "quit" {
+                if response.content == "exit" || response.content == "quit" {
                     ResponseHelper::new(usr, msg)
                         .push("Fend exited.")
                         .say()
@@ -47,7 +53,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
                     fend_context.set_output_mode_terminal();
                     fend_context.set_random_u32_fn(random_u32);
 
-                    let lines = expr
+                    let lines = response
                         .content
                         .replace(['`'], " ")
                         .lines()
