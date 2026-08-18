@@ -54,19 +54,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
                         .map(String::from)
                         .collect::<Vec<_>>();
 
-                    let mut output_buffer = String::new();
-
-                    let multiline = lines.len() > 1;
-
-                    for line in lines {
-                        let response = fend_run(&line, &mut fend_context);
-                        if multiline {
-                            output_buffer.push_str(&format!("> {}\n", line));
-                        }
-                        output_buffer.push_str(&format!("{response}\n"));
-                    }
-
-                    output_buffer
+                    fend_run(lines, &mut fend_context)
                 })
                 .await
                 .unwrap_or_else(|err| format!("Error: {}", err));
@@ -92,19 +80,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
             fend_context.set_output_mode_terminal();
             fend_context.set_random_u32_fn(random_u32);
 
-            let mut output_buffer = String::new();
-
-            let multiline = lines.len() > 1;
-
-            for line in lines {
-                let response = fend_run(&line, &mut fend_context);
-                if multiline {
-                    output_buffer.push_str(&format!("> {}\n", line));
-                }
-                output_buffer.push_str(&format!("{response}\n"));
-            }
-
-            output_buffer
+            fend_run(lines, &mut fend_context)
         })
         .await
         .unwrap_or_else(|err| format!("Error: {}", err));
@@ -116,15 +92,25 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: 
     }
 }
 
-fn fend_run(input: &str, context: &mut fend_core::Context) -> String {
-    let result = fend_core::evaluate(input, context);
-    match result {
-        Ok(result) => render_spans(result.get_main_result_spans()),
-        Err(err) => format!(
-            "```ansi\n{}\n```",
-            ansi_color::format(&err, vec![ansi_color::Style::RedForeground])
-        ),
+fn fend_run(lines: Vec<String>, context: &mut fend_core::Context) -> String {
+    let mut result_buf = String::new();
+
+    let multiline = lines.len() > 1;
+
+    for line in lines {
+        if multiline {
+            result_buf.push_str(&format!("> {}\n", line));
+        }
+
+        let result = match fend_core::evaluate(&line, context) {
+            Ok(result) => render_spans(result.get_main_result_spans()),
+            Err(err) => ansi_color::format(&err, vec![ansi_color::Style::RedForeground]),
+        };
+
+        result_buf.push_str(&format!("{result}\n"));
     }
+
+    format!("```ansi\n{}\n```", result_buf)
 }
 
 fn render_spans<'a, T: Iterator<Item = SpanRef<'a>>>(spans: T) -> String {
