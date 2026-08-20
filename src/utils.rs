@@ -77,6 +77,7 @@ pub mod ansi_color {
     }
 }
 
+#[expect(unused)]
 pub fn parse_mention(msg: String) -> Option<UserId> {
     let digits_str = msg.get(2..msg.len() - 1)?;
 

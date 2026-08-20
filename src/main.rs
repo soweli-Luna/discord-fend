@@ -1,5 +1,5 @@
 use dotenv::dotenv;
-use serenity::{all::UserId, prelude::*};
+use serenity::prelude::*;
 use std::env;
 
 mod event_handler;
@@ -9,7 +9,6 @@ mod utils;
 #[tokio::main]
 #[expect(clippy::expect_used, clippy::unwrap_used)]
 async fn main() {
-    #[expect(unused_variables)]
     // fetch env vars
     dotenv().ok();
     let token = env::var("TOKEN").expect("env variable `TOKEN` should be set");

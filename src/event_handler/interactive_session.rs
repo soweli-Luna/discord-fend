@@ -25,7 +25,7 @@ pub async fn try_find_session(msg: &Message) -> Option<InteractiveSender> {
 }
 
 pub async fn handle(sender: Sender<Message>, msg: &Message) {
-    if let Err(err) = sender.send(msg.clone()).await {
+    if let Err(_err) = sender.send(msg.clone()).await {
         INTERACTIVE_SESSION_MAP
             .write()
             .await
@@ -79,6 +79,7 @@ impl InteractiveSession {
         None
     }
 
+    #[expect(unused)]
     pub async fn parse_response<T>(&mut self, prompt: &str) -> Option<T>
     where
         T: InteractiveFill + Display,
