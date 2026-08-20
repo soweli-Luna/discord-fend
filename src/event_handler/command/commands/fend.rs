@@ -25,59 +25,73 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
     if lines.is_empty() {
         // no args, make an interactive session
         let closure = async |session: &mut InteractiveSession| {
-            ResponseHelper::new(usr, msg)
+            let mut bot_response = ResponseHelper::new(usr, msg);
+
+            bot_response
                 .push("Starting fend REPL. Type `exit` to exit.")
                 .say()
                 .await;
 
+            let mut fend_context = fend_core::Context::new();
+            fend_context.set_output_mode_terminal();
+            fend_context.set_random_u32_fn(random_u32);
+
             loop {
-                let response = match session.get_response().await {
+                let mut bot_response = ResponseHelper::new(usr, msg);
+                let user_response = match session.get_response().await {
                     Some(expr) => expr,
                     None => {
-                        ResponseHelper::new(usr, msg)
-                            .push("Session timed out.")
-                            .say()
-                            .await;
+                        bot_response.push("Session timed out.").say().await;
                         break;
                     }
                 };
 
-                if response.content == "exit" || response.content == "quit" {
-                    ResponseHelper::new(usr, msg)
-                        .push("Fend exited.")
-                        .say()
-                        .await;
+                if user_response.content == "exit" || user_response.content == "quit" {
+                    bot_response.push("Fend exited.").say().await;
                     break;
                 }
 
-                // start typing right away so the user knows we're working on it
-                let mut response_helper = ResponseHelper::new(usr, msg)
-                    .no_reply()
+                // set to reply to the latest message,
+                // and start typing right away so the user knows we're working on it
+                let mut bot_response = bot_response
+                    .reply_to(user_response.clone())
                     .start_typing()
                     .await;
 
-                let response = tokio::time::timeout(
+                let mut passed_fend_context = fend_context.clone();
+                let result = tokio::time::timeout(
                     std::time::Duration::from_secs(30),
                     tokio::task::spawn_blocking(move || {
-                        let mut fend_context = fend_core::Context::new();
-                        fend_context.set_output_mode_terminal();
-                        fend_context.set_random_u32_fn(random_u32);
-
-                        let lines = response
+                        let lines = user_response
                             .content
                             .replace(['`'], " ")
                             .lines()
                             .map(String::from)
                             .collect::<Vec<_>>();
 
-                        fend_run(lines, &mut fend_context)
+                        (
+                            fend_run(lines, &mut passed_fend_context),
+                            passed_fend_context,
+                        )
                     }),
                 )
-                .await
-                .unwrap_or_else(|_| Ok("Operation timed out.".to_string()))
-                .unwrap_or_else(|err| format!("Error: {}", err));
+                .await;
 
-                response_helper.push(response).say().await;
+                let (response, returned_fend_context) = match result {
+                    Ok(Ok((response, fend_context))) => (response, fend_context),
+                    Ok(Err(err)) => {
+                        bot_response.push(format!("Error: {}", err)).say().await;
+                        continue;
+                    }
+                    Err(_) => {
+                        bot_response.push("Operation timed out.").say().await;
+                        break;
+                    }
+                };
+
+                fend_context = returned_fend_context;
+
+                bot_response.push(response).say().await;
             }
         };
 
@@ -91,11 +105,11 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
         // args given, just evaluate the expression
 
         // start typing right away so the user knows we're working on it
-        let mut response_helper = ResponseHelper::new(usr, msg).start_typing().await;
+        let mut bot_response = ResponseHelper::new(usr, msg).start_typing().await;
 
         let response = tokio::time::timeout(
             std::time::Duration::from_secs(30),
-            tokio::task::spawn_blocking(move || {
+            tokio::task::spawn_blocking(|| {
                 let mut fend_context = fend_core::Context::new();
                 fend_context.set_output_mode_terminal();
                 fend_context.set_random_u32_fn(random_u32);
@@ -107,7 +121,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
         .unwrap_or_else(|_| Ok("Operation timed out.".to_string()))
         .unwrap_or_else(|err| format!("Error: {}", err));
 
-        response_helper.push(response).say().await;
+        bot_response.push(response).say().await;
     }
 }
 

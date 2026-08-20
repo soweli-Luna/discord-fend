@@ -1,6 +1,10 @@
 use std::time::Duration;
 
-use serenity::{Error::Model, Result, all::ModelError};
+use serenity::{
+    Error::Model,
+    Result,
+    all::{Message, ModelError},
+};
 use tokio::time::sleep;
 
 use crate::debug;
@@ -27,7 +31,7 @@ impl<'a> ResponseHelper<'a> {
                 .expect("CTX should be set before the api is used"),
             msg,
             usr,
-            reply_mode: ReplyMode::Reply,
+            reply_mode: ReplyMode::Reply(msg.clone()),
             typing: None,
         }
     }
@@ -43,12 +47,22 @@ impl<'a> ResponseHelper<'a> {
     }
 
     pub fn reply(mut self) -> Self {
-        self.reply_mode = ReplyMode::Reply;
+        self.reply_mode = ReplyMode::Reply(self.msg.clone());
         self
     }
 
     pub fn ping_reply(mut self) -> Self {
-        self.reply_mode = ReplyMode::PingReply;
+        self.reply_mode = ReplyMode::PingReply(self.msg.clone());
+        self
+    }
+
+    pub fn reply_to(mut self, msg: Message) -> Self {
+        self.reply_mode = ReplyMode::Reply(msg);
+        self
+    }
+
+    pub fn ping_reply_to(mut self, msg: Message) -> Self {
+        self.reply_mode = ReplyMode::PingReply(msg);
         self
     }
 
@@ -90,17 +104,20 @@ impl<'a> ResponseHelper<'a> {
 
             sleep(Duration::from_millis((message.len().isqrt() * 50) as u64)).await;
             typing.stop();
-            match self.reply_mode {
+            match &self.reply_mode {
                 ReplyMode::NoReply => channel.say(&self.ctx.http, message).await?,
-                ReplyMode::Reply => self.msg.reply(&self.ctx.http, message).await?,
-                ReplyMode::PingReply => self.msg.reply_ping(&self.ctx.http, message).await?,
+                ReplyMode::Reply(msg) => msg.reply(&self.ctx.http, message).await?,
+                ReplyMode::PingReply(msg) => msg.reply_ping(&self.ctx.http, message).await?,
                 ReplyMode::Dm => channel.say(&self.ctx.http, message).await?,
             };
             // clear reply mode so it only applies to the first message
-            if self.reply_mode != ReplyMode::Dm {
+            if let ReplyMode::Dm = self.reply_mode {
+                // Do nothing
+            } else {
                 self.reply_mode = ReplyMode::NoReply;
             }
         }
+        self.response.clear();
         Ok(())
     }
 
@@ -140,10 +157,10 @@ impl<'a> ResponseHelper<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone)]
 enum ReplyMode {
     NoReply,
-    Reply,
-    PingReply,
+    Reply(Message),
+    PingReply(Message),
     Dm,
 }
