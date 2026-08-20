@@ -25,6 +25,12 @@ pub enum Command {
     ///
     /// Lists all commands, or details about a specific command if one or more is provided
     Help,
+    /// **uptime**
+    ///
+    /// ---
+    ///
+    /// Displays the uptime of the bot
+    Uptime,
 }
 impl Parse for Command {
     fn try_parse(content: &mut Vec<String>) -> Option<Self> {
@@ -32,6 +38,7 @@ impl Parse for Command {
             let command = match first.as_str() {
                 "fend" => Self::Fend,
                 "help" => Self::Help,
+                "uptime" => Self::Uptime,
                 _ => return None,
             };
             content.remove(0);
@@ -51,6 +58,7 @@ impl Command {
         match self {
             Command::Fend => fend::cmd(usr, msg, args).await,
             Command::Help => help::cmd(usr, msg, args).await,
+            Command::Uptime => uptime::cmd(usr, msg, args).await,
         }
     }
 }
@@ -62,3 +70,4 @@ pub trait Parse: Sized {
 
 mod fend;
 mod help;
+mod uptime;
