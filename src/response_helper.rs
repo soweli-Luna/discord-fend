@@ -3,14 +3,17 @@ use std::time::Duration;
 use serenity::{Error::Model, Result, all::ModelError};
 use tokio::time::sleep;
 
+use crate::debug;
+
 /// Helper struct for constructing multiple-message responses with convincing typing times
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ResponseHelper<'a> {
     response: Vec<String>,
     ctx: &'a serenity::all::Context,
     msg: &'a serenity::all::Message,
     usr: &'a serenity::all::User,
     reply_mode: ReplyMode,
+    typing: Option<serenity::all::Typing>,
 }
 impl<'a> ResponseHelper<'a> {
     #![expect(dead_code)]
@@ -25,6 +28,7 @@ impl<'a> ResponseHelper<'a> {
             msg,
             usr,
             reply_mode: ReplyMode::Reply,
+            typing: None,
         }
     }
 
@@ -107,22 +111,25 @@ impl<'a> ResponseHelper<'a> {
     pub async fn start_typing(mut self) -> Self {
         match self.get_channel().await {
             Ok(channel) => {
-                channel.start_typing(&self.ctx.http);
+                if let Some(typing) = self.typing {
+                    typing.stop();
+                }
+                self.typing = Some(channel.start_typing(&self.ctx.http));
             }
             Err(err) => {
-                eprintln!("Failed to start typing: {}", err);
+                debug!("Failed to start typing: {}", err);
             }
         };
         self
     }
 
-    /// Start typing, returning an error upon failure.
-    ///
-    /// Not typically needed, as [`say`](#method.say) will start typing automatically, but can be useful if you want to start typing
-    /// before beginning a time-consuming operation in order to let the user know that something is happening.
-    pub async fn try_start_typing(mut self) -> Result<Self> {
-        self.get_channel().await?.start_typing(&self.ctx.http);
-        Ok(self)
+    /// Stop typing, failing silently.
+    pub async fn stop_typing(mut self) -> Self {
+        if let Some(typing) = self.typing {
+            typing.stop();
+            self.typing = None;
+        }
+        self
     }
 
     async fn get_channel(&mut self) -> Result<serenity::all::ChannelId> {
