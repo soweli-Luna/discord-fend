@@ -69,7 +69,7 @@ macro_rules! debug {
 #[macro_export]
 macro_rules! print_debug_header {
     () => {
-        eprint!("{} ({}:{})", $crate::utils::timestamp(), file!(), line!());
+        eprint!("{} ({}:{}): ", $crate::utils::timestamp(), file!(), line!());
     };
 }
 
