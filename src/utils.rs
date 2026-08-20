@@ -34,17 +34,16 @@ use serenity::all::UserId;
 ///
 #[macro_export]
 #[expect(clippy::crate_in_macro_def)]
-
 macro_rules! debug {
     () => {
         if crate::DEBUG {
-            crate::utils::print_debug_header();
+            eprint!("{} ", crate::utils::timestamp());
             dbg!();
         }
     };
     ($arg:literal) => {
         if crate::DEBUG {
-            crate::utils::print_debug_header();
+            crate::print_debug_header!();
             eprintln!($arg);
         }
     };
@@ -52,7 +51,7 @@ macro_rules! debug {
         match $arg {
             tmp => {
                 if crate::DEBUG {
-                    crate::utils::print_debug_header();
+                    eprint!("{} ", crate::utils::timestamp());
                     dbg!($arg);
                 }
                 tmp
@@ -61,14 +60,17 @@ macro_rules! debug {
     };
     ($($args:expr),+) => {
         if crate::DEBUG {
-            crate::utils::print_debug_header();
+            crate::print_debug_header!();
             eprintln!($($args),+);
         }
     };
 }
 
-pub fn print_debug_header() {
-    eprint!("{} ({}:{}): ", crate::utils::timestamp(), file!(), line!());
+#[macro_export]
+macro_rules! print_debug_header {
+    () => {
+        eprint!("{} ({}:{})", $crate::utils::timestamp(), file!(), line!());
+    };
 }
 
 pub fn timestamp() -> String {

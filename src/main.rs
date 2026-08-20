@@ -41,11 +41,10 @@ async fn main() {
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
 
-            #[expect(unused_must_use)]
             if let Some(ctx) = event_handler::CTX.get()
-                && let Err(why) = debug!(ctx.http.get_gateway().await)
+                && let Err(why) = ctx.http.get_gateway().await
             {
-                eprintln!("Error polling gateway: {why:?}");
+                debug!("Error polling gateway: {why:?}");
             }
         }
     });
