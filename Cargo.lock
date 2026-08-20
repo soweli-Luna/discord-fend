@@ -296,6 +296,7 @@ dependencies = [
  "fend-core",
  "rand 0.10.2",
  "serenity",
+ "time",
  "tokio",
 ]
 

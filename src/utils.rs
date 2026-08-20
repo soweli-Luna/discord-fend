@@ -2,6 +2,86 @@ use std::str::FromStr;
 
 use serenity::all::UserId;
 
+/// Prints to the standard error, with a newline, and only if `crate::DEBUG == true`.
+///
+/// Attempts to intelligently select between `eprintln!` behavior and `dbg!` behavior.
+///
+/// Behaves like `dbg!` when empty or passed an expression,
+/// and like `eprintln!` when passed a format string.
+///
+/// When an expression is passed, like `dbg!`, returns the evaluated expression unchanged.
+///
+/// `pub crate::DEBUG: bool` must exist.
+///
+/// See [the formatting documentation in `std::fmt`](../std/fmt/index.html)
+/// for details of the macro argument syntax.
+///
+/// # Panics
+///
+/// Panics if writing to `io::stderr` fails.
+///
+/// Writing to non-blocking stderr can cause an error, which will lead
+/// this macro to panic.
+///
+/// # Examples
+///
+/// ```
+/// debug!("Reached Progress Point");   // 'Reached Progress Point'
+/// debug!(x)   // '[src/main.rs:2:5] x = 10'
+/// debug!()    // '[src/main.rs:3:5]'
+/// debug!("Format example. {}", x);   // 'Format example. 10'
+/// ```
+///
+#[macro_export]
+#[expect(clippy::crate_in_macro_def)]
+macro_rules! debug {
+    () => {
+        if crate::DEBUG {
+            crate::utils::print_debug_header();
+            dbg!();
+        }
+    };
+    ($arg:literal) => {
+        if crate::DEBUG {
+            crate::utils::print_debug_header();
+            eprintln!($arg);
+        }
+    };
+    ($arg:expr) => {
+        match $arg {
+            tmp => {
+                if crate::DEBUG {
+                    crate::utils::print_debug_header();
+                    dbg!($arg);
+                }
+                tmp
+            }
+        }
+    };
+    ($($args:expr),+) => {
+        if crate::DEBUG {
+            crate::utils::print_debug_header();
+            eprintln!($($args),+);
+        }
+    };
+}
+
+pub fn print_debug_header() {
+    eprint!("{} ({}:{}): ", crate::utils::timestamp(), file!(), line!());
+}
+
+pub fn timestamp() -> String {
+    let now = time::Timestamp::now();
+    format!(
+        "[{}]",
+        now.format(time::macros::format_description!(
+            "[hour]:[minute]:[second]:[subsecond digits:3]"
+        ))
+        .unwrap()
+    )
+    .to_string()
+}
+
 /// Helper module for ansi color codes, as implemented by discord's ansi code block highlighter
 pub mod ansi_color {
 
