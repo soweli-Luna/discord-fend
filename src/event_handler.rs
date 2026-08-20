@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::{eprintln, sync::OnceLock};
 
 use serenity::{
     all::{Context, EventHandler, Message, Ready},
@@ -38,7 +38,7 @@ impl EventHandler for Handler {
     // In this case, just print what the current user's username is.
     async fn ready(&self, ctx: Context, ready: Ready) {
         eprintln!("{} is connected!", ready.user.name);
-        #[expect(clippy::expect_used)]
-        CTX.set(ctx).expect("CTX should only be set once");
+        CTX.set(ctx)
+            .unwrap_or_else(|_| eprintln!("Received additional `ready` event"))
     }
 }
