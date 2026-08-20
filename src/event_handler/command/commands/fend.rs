@@ -52,21 +52,25 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
 
                 // let response = fend_run(&expr.content, &mut fend_context);
 
-                let response = tokio::task::spawn_blocking(move || {
-                    let mut fend_context = fend_core::Context::new();
-                    fend_context.set_output_mode_terminal();
-                    fend_context.set_random_u32_fn(random_u32);
+                let response = tokio::time::timeout(
+                    std::time::Duration::from_secs(30),
+                    tokio::task::spawn_blocking(move || {
+                        let mut fend_context = fend_core::Context::new();
+                        fend_context.set_output_mode_terminal();
+                        fend_context.set_random_u32_fn(random_u32);
 
-                    let lines = response
-                        .content
-                        .replace(['`'], " ")
-                        .lines()
-                        .map(String::from)
-                        .collect::<Vec<_>>();
+                        let lines = response
+                            .content
+                            .replace(['`'], " ")
+                            .lines()
+                            .map(String::from)
+                            .collect::<Vec<_>>();
 
-                    fend_run(lines, &mut fend_context)
-                })
+                        fend_run(lines, &mut fend_context)
+                    }),
+                )
                 .await
+                .unwrap_or_else(|_| Ok("Operation timed out.".to_string()))
                 .unwrap_or_else(|err| format!("Error: {}", err));
 
                 ResponseHelper::new(usr, msg)
@@ -85,14 +89,18 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
         }
     } else {
         // args given, just evaluate the expression
-        let response = tokio::task::spawn_blocking(move || {
-            let mut fend_context = fend_core::Context::new();
-            fend_context.set_output_mode_terminal();
-            fend_context.set_random_u32_fn(random_u32);
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            tokio::task::spawn_blocking(move || {
+                let mut fend_context = fend_core::Context::new();
+                fend_context.set_output_mode_terminal();
+                fend_context.set_random_u32_fn(random_u32);
 
-            fend_run(lines, &mut fend_context)
-        })
+                fend_run(lines, &mut fend_context)
+            }),
+        )
         .await
+        .unwrap_or_else(|_| Ok("Operation timed out.".to_string()))
         .unwrap_or_else(|err| format!("Error: {}", err));
         ResponseHelper::new(usr, msg)
             // .no_reply()
@@ -102,6 +110,9 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
     }
 }
 
+/// Run a series of lines in the given context, returning the output as a string
+///
+/// Will block
 fn fend_run(lines: Vec<String>, context: &mut fend_core::Context) -> String {
     let mut result_buf = String::new();
 
