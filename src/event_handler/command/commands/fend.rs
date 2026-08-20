@@ -50,7 +50,11 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
                     break;
                 }
 
-                // let response = fend_run(&expr.content, &mut fend_context);
+                // start typing right away so the user knows we're working on it
+                let mut response_helper = ResponseHelper::new(usr, msg)
+                    .no_reply()
+                    .start_typing()
+                    .await;
 
                 let response = tokio::time::timeout(
                     std::time::Duration::from_secs(30),
@@ -73,11 +77,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
                 .unwrap_or_else(|_| Ok("Operation timed out.".to_string()))
                 .unwrap_or_else(|err| format!("Error: {}", err));
 
-                ResponseHelper::new(usr, msg)
-                    .no_reply()
-                    .push(response)
-                    .say()
-                    .await;
+                response_helper.push(response).say().await;
             }
         };
 
@@ -89,6 +89,10 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
         }
     } else {
         // args given, just evaluate the expression
+
+        // start typing right away so the user knows we're working on it
+        let mut response_helper = ResponseHelper::new(usr, msg).start_typing().await;
+
         let response = tokio::time::timeout(
             std::time::Duration::from_secs(30),
             tokio::task::spawn_blocking(move || {
@@ -102,11 +106,8 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
         .await
         .unwrap_or_else(|_| Ok("Operation timed out.".to_string()))
         .unwrap_or_else(|err| format!("Error: {}", err));
-        ResponseHelper::new(usr, msg)
-            // .no_reply()
-            .push(response)
-            .say()
-            .await;
+
+        response_helper.push(response).say().await;
     }
 }
 
