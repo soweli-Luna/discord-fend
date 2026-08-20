@@ -34,6 +34,7 @@ use serenity::all::UserId;
 ///
 #[macro_export]
 #[expect(clippy::crate_in_macro_def)]
+
 macro_rules! debug {
     () => {
         if crate::DEBUG {

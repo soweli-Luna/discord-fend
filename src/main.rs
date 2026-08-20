@@ -35,6 +35,21 @@ async fn main() {
         // | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
+    // a small thread to poll the gateway, just a test to see if this prevents the
+    // slow response to 'cold' commands issue
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+
+            #[expect(unused_must_use)]
+            if let Some(ctx) = event_handler::CTX.get()
+                && let Err(why) = debug!(ctx.http.get_gateway().await)
+            {
+                eprintln!("Error polling gateway: {why:?}");
+            }
+        }
+    });
+
     // Create a new instance of the Client, logging in as a bot. This will automatically prepend
     // your bot token with "Bot ", which is a requirement by Discord for bot users.
     let mut client = Client::builder(token.clone(), intents)

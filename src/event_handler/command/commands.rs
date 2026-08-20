@@ -1,7 +1,6 @@
 use documented::{DocumentedFieldsOpt, DocumentedVariantsOpt};
 
 #[derive(Debug, Clone, DocumentedFieldsOpt, DocumentedVariantsOpt)]
-// #[warn(clippy::missing_docs_in_private_items)]
 pub enum Command {
     /// **fend** \[EXPRESSION\]
     ///

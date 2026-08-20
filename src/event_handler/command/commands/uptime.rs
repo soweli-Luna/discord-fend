@@ -2,7 +2,7 @@ use std::eprintln;
 
 use crate::response_helper::ResponseHelper;
 
-pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, args: Vec<String>) {
+pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args: Vec<String>) {
     let start_time = crate::START_TIME.get();
     if let Some(start_time) = start_time {
         let now = time::OffsetDateTime::now_utc();
