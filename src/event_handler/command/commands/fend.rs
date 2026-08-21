@@ -135,7 +135,7 @@ fn fend_run(lines: Vec<String>, context: &mut fend_core::Context) -> String {
 
     for line in lines {
         if multiline {
-            result_buf.push_str(&format!("> {}\n", line));
+            result_buf.push_str(&format!("> {}\n", line.trim()));
         }
 
         let result = match fend_core::evaluate(&line, context) {
