@@ -56,7 +56,10 @@ struct DocCommentParsed {
 }
 
 fn doc_comment_parse(doc: &str) -> DocCommentParsed {
-    let doc = doc.replace("\n", " ").replace("\n\n", "\n");
+    let doc = doc
+        .replace("\n\n", "\r")
+        .replace("\n", " ")
+        .replace("\r", "\n");
     let mut sections = doc.split("---");
 
     DocCommentParsed {

@@ -15,10 +15,40 @@ pub enum Command {
     /// [fend](<https://github.com/printfn/fend>) is an arbitrary-precision unit-aware calculator,
     /// see the [manual](<https://printfn.github.io/fend/documentation/>) for more information on how to use it
     ///
+    /// This command has a number of special features:
+    ///
+    /// - ANSI color highlighting
+    ///
+    /// -# (does not currently render properly on mobile)
+    ///
+    /// - Interactive REPL sessions
+    ///
+    /// -# (type `~fend` with no arguments, and the bot will listen to every message you send for a while)
+    ///
+    /// - Multi-line prompts
+    ///
+    /// -# (any expression that spans multiple lines will be evaluated as if
+    ///   it were a series of prompts, with context retention between prompts)
+    ///
+    /// - Channel context retention
+    ///
+    /// -# (try sending `~fend x = 5` and then `~fend x + 10`)
+    ///
     /// ---
     ///
     /// this section should be ignored by the help command
     Fend,
+    /// **clear-context**
+    ///
+    /// ---
+    ///
+    /// Clears the fend context for the current channel
+    ///
+    /// ---
+    ///
+    /// This is mostly included in case an important unit or constant gets redefined,
+    /// which could remain in the context for a long time depending on usage conditions.
+    ClearContext,
     /// **help** \[COMMANDS\]
     ///
     /// ---
@@ -37,6 +67,7 @@ impl Parse for Command {
         if let Some(first) = content.first() {
             let command = match first.as_str() {
                 "fend" => Self::Fend,
+                "clear-context" => Self::ClearContext,
                 "help" => Self::Help,
                 "uptime" => Self::Uptime,
                 _ => return None,
@@ -57,6 +88,7 @@ impl Command {
     ) {
         match self {
             Command::Fend => fend::cmd(usr, msg, args).await,
+            Command::ClearContext => fend::clear_context(usr, msg).await,
             Command::Help => help::cmd(usr, msg, args).await,
             Command::Uptime => uptime::cmd(usr, msg, args).await,
         }

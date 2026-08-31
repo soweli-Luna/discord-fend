@@ -8,6 +8,7 @@ default = []
 debug = []
 
 [dependencies]
+circular-buffer = "2.0.1"
 documented = "0.10.0"
 dotenv = "0.15.0"
 fend-core = "1.5.8"

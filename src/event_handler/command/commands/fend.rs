@@ -1,14 +1,23 @@
-use std::{char, format, vec};
+use std::{char, format, sync::LazyLock, vec};
 
+use circular_buffer::FixedCircularBuffer;
 use fend_core::SpanRef;
+use serenity::all::ChannelId;
+use tokio::sync::RwLock;
 
 use crate::{
     event_handler::interactive_session::InteractiveSession, response_helper::ResponseHelper,
     utils::ansi_color,
 };
 
+/// The maximum number of fend contexts to keep in memory
+const MAX_FEND_CTX: usize = 64;
+/// A buffer of fend contexts associated to channels, so that users can continue their calculations
+type FendCtxBuf = FixedCircularBuffer<(ChannelId, fend_core::Context), MAX_FEND_CTX>;
+/// A buffer of fend contexts associated to channels, so that users can continue their calculations
+static FEND_CTX_BUF: LazyLock<RwLock<FendCtxBuf>> = LazyLock::new(Default::default);
+
 pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args: Vec<String>) {
-    // let args = args.join(" ").replace(['`'], " ");
     let args = msg
         .content
         .strip_prefix("~fend")
@@ -107,19 +116,61 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
         // start typing right away so the user knows we're working on it
         let mut bot_response = ResponseHelper::new(usr, msg).start_typing().await;
 
-        let response = tokio::time::timeout(
-            std::time::Duration::from_secs(30),
-            tokio::task::spawn_blocking(|| {
+        let handle = FEND_CTX_BUF.read().await;
+        let ctx_entry = handle
+            .iter()
+            .find(|(channel_id, _ctx)| *channel_id == msg.channel_id)
+            .cloned();
+        drop(handle);
+
+        // get the context for this channel, or create a new one if it doesn't exist
+        let mut fend_context = match ctx_entry {
+            Some((_, ctx)) => ctx.clone(),
+            None => {
                 let mut fend_context = fend_core::Context::new();
                 fend_context.set_output_mode_terminal();
                 fend_context.set_random_u32_fn(random_u32);
+                fend_context
+            }
+        };
 
-                fend_run(lines, &mut fend_context)
+        let (response, fend_context) = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            tokio::task::spawn_blocking(move || {
+                (fend_run(lines, &mut fend_context), Some(fend_context))
             }),
         )
         .await
-        .unwrap_or_else(|_| Ok("Operation timed out.".to_string()))
-        .unwrap_or_else(|err| format!("Error: {}", err));
+        .unwrap_or_else(|_| Ok(("Operation timed out.".to_string(), None)))
+        .unwrap_or_else(|err| (format!("Error: {}", err), None));
+
+        // store the updated context in the buffer
+        let mut handle = FEND_CTX_BUF.write().await;
+
+        // we need to re-index in case another thread has pushed to the buffer
+        let ctx_entry_idx = handle
+            .iter()
+            .position(|(channel_id, _ctx)| *channel_id == msg.channel_id);
+
+        // only update the context if we actually got a new one
+        if let Some(fend_context) = fend_context {
+            if let Some(idx) = ctx_entry_idx {
+                match handle.get_mut(idx) {
+                    Some((_, ctx)) => *ctx = fend_context,
+                    None => {
+                        // this shouldnt be possible as the buffer never shrinks,
+                        // but just in case, we handle it by pushing the context to the front of the buffer
+                        handle.push_front((msg.channel_id, fend_context));
+                    }
+                }
+            } else {
+                // this would indicate that the entry fell out of the buffer while we were processing,
+                // which is unlikely but possible
+                handle.push_front((msg.channel_id, fend_context));
+            }
+        }
+
+        drop(handle);
 
         bot_response.push(response).say().await;
     }
@@ -181,4 +232,20 @@ fn render_spans<'a, T: Iterator<Item = SpanRef<'a>>>(spans: T) -> String {
 
 fn random_u32() -> u32 {
     rand::random()
+}
+
+pub async fn clear_context(usr: &serenity::all::User, msg: &serenity::all::Message) {
+    let mut handle = FEND_CTX_BUF.write().await;
+    let ctx_entry_idx = handle
+        .iter()
+        .position(|(channel_id, _ctx)| *channel_id == msg.channel_id);
+
+    if let Some(idx) = ctx_entry_idx {
+        handle.remove(idx);
+        let mut bot_response = ResponseHelper::new(usr, msg);
+        bot_response.push("Context cleared").say().await;
+    } else {
+        let mut bot_response = ResponseHelper::new(usr, msg);
+        bot_response.push("No context to clear").say().await;
+    }
 }
