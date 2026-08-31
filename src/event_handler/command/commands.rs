@@ -1,6 +1,6 @@
 use documented::{DocumentedFieldsOpt, DocumentedVariantsOpt};
 
-#[derive(Debug, Clone, DocumentedFieldsOpt, DocumentedVariantsOpt)]
+#[derive(Debug, Clone, DocumentedFieldsOpt, DocumentedVariantsOpt, PartialEq)]
 // #[warn(clippy::missing_docs_in_private_items)]
 pub enum Command {
     /// **fend** \[EXPRESSION\]
@@ -61,6 +61,12 @@ pub enum Command {
     ///
     /// Displays the uptime of the bot
     Uptime,
+    /// **version**
+    ///
+    /// ---
+    ///
+    /// Displays the version of the bot
+    Version,
 }
 impl Parse for Command {
     fn try_parse(content: &mut Vec<String>) -> Option<Self> {
@@ -70,6 +76,7 @@ impl Parse for Command {
                 "clear-context" => Self::ClearContext,
                 "help" => Self::Help,
                 "uptime" => Self::Uptime,
+                "version" => Self::Version,
                 _ => return None,
             };
             content.remove(0);
@@ -91,6 +98,7 @@ impl Command {
             Command::ClearContext => fend::clear_context(usr, msg).await,
             Command::Help => help::cmd(usr, msg, args).await,
             Command::Uptime => uptime::cmd(usr, msg, args).await,
+            Command::Version => version::cmd(usr, msg).await,
         }
     }
 }
@@ -103,3 +111,4 @@ pub trait Parse: Sized {
 mod fend;
 mod help;
 mod uptime;
+mod version;
