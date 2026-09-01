@@ -6,18 +6,24 @@ use serenity::all::ChannelId;
 use tokio::sync::RwLock;
 
 use crate::{
-    event_handler::interactive_session::InteractiveSession, response_helper::ResponseHelper,
+    event_handler::{EDITABLE_COMMANDS, interactive_session::InteractiveSession},
+    response_helper::ResponseHelper,
     utils::ansi_color,
 };
 
 /// The maximum number of fend contexts to keep in memory
-const MAX_FEND_CTX: usize = 64;
+const MAX_FEND_CTX: usize = 128;
 /// A buffer of fend contexts associated to channels, so that users can continue their calculations
 type FendCtxBuf = FixedCircularBuffer<(ChannelId, fend_core::Context), MAX_FEND_CTX>;
 /// A buffer of fend contexts associated to channels, so that users can continue their calculations
 static FEND_CTX_BUF: LazyLock<RwLock<FendCtxBuf>> = LazyLock::new(Default::default);
 
-pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args: Vec<String>) {
+pub async fn cmd(
+    usr: &serenity::all::User,
+    msg: &serenity::all::Message,
+    _args: Vec<String>,
+    message_to_edit: Option<&serenity::all::Message>,
+) {
     let args = msg
         .content
         .strip_prefix("~fend")
@@ -31,7 +37,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
         .filter(|l| !l.trim_matches(char::is_whitespace).is_empty())
         .collect::<Vec<_>>();
 
-    if lines.is_empty() {
+    if lines.is_empty() && message_to_edit.is_none() {
         // no args, make an interactive session
         let closure = async |session: &mut InteractiveSession| {
             let mut bot_response = ResponseHelper::new(usr, msg);
@@ -62,10 +68,8 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
 
                 // set to reply to the latest message,
                 // and start typing right away so the user knows we're working on it
-                let mut bot_response = bot_response
-                    .reply_to(user_response.clone())
-                    .start_typing()
-                    .await;
+                let mut bot_response = bot_response.reply_to(user_response.clone());
+                bot_response.start_typing().await;
 
                 let mut passed_fend_context = fend_context.clone();
                 let result = tokio::time::timeout(
@@ -114,7 +118,12 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
         // args given, just evaluate the expression
 
         // start typing right away so the user knows we're working on it
-        let mut bot_response = ResponseHelper::new(usr, msg).start_typing().await;
+        let mut bot_response = ResponseHelper::new(usr, msg);
+        bot_response.start_typing().await;
+
+        if let Some(message_to_edit) = message_to_edit {
+            bot_response = bot_response.message_to_edit(Some(message_to_edit.clone()));
+        }
 
         let handle = FEND_CTX_BUF.read().await;
         let ctx_entry = handle
@@ -155,7 +164,7 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
         // only update the context if we actually got a new one
         if let Some(fend_context) = fend_context {
             if let Some(idx) = ctx_entry_idx {
-                match handle.get_mut(idx) {
+                match handle.nth_front_mut(idx) {
                     Some((_, ctx)) => *ctx = fend_context,
                     None => {
                         // this shouldnt be possible as the buffer never shrinks,
@@ -173,6 +182,14 @@ pub async fn cmd(usr: &serenity::all::User, msg: &serenity::all::Message, _args:
         drop(handle);
 
         bot_response.push(response).say().await;
+
+        if let Some(my_msg) = bot_response.latest_message() {
+            let mut handle = EDITABLE_COMMANDS.write().await;
+            if let Some(index) = handle.iter().position(|pair| pair.1.id == my_msg.id) {
+                handle.remove(index);
+            }
+            handle.push_front((msg.clone(), my_msg.clone()));
+        }
     }
 }
 

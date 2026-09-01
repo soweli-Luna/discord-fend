@@ -1,6 +1,6 @@
 [package]
 name = "discord-fend"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 
 [features]
@@ -13,6 +13,6 @@ documented = "0.10.0"
 dotenv = "0.15.0"
 fend-core = "1.5.8"
 rand = "0.10.2"
-serenity = "0.12.5"
+serenity = { version = "0.12.5", features = ["cache"] }
 time = { version = "0.3.55", features = ["formatting", "macros"] }
 tokio = { version = "1.53.1", features = ["rt-multi-thread"] }

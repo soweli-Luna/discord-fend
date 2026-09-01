@@ -3,7 +3,7 @@ use std::time::Duration;
 use serenity::{
     Error::Model,
     Result,
-    all::{Message, ModelError},
+    all::{EditMessage, Message, ModelError},
 };
 use tokio::time::sleep;
 
@@ -18,6 +18,7 @@ pub struct ResponseHelper<'a> {
     usr: &'a serenity::all::User,
     reply_mode: ReplyMode,
     typing: Option<serenity::all::Typing>,
+    latest_message: Option<serenity::all::Message>,
 }
 impl<'a> ResponseHelper<'a> {
     #![expect(dead_code)]
@@ -33,6 +34,7 @@ impl<'a> ResponseHelper<'a> {
             usr,
             reply_mode: ReplyMode::Reply(msg.clone()),
             typing: None,
+            latest_message: None,
         }
     }
 
@@ -63,6 +65,13 @@ impl<'a> ResponseHelper<'a> {
 
     pub fn ping_reply_to(mut self, msg: Message) -> Self {
         self.reply_mode = ReplyMode::PingReply(msg);
+        self
+    }
+
+    pub fn message_to_edit(mut self, msg: Option<Message>) -> Self {
+        if let Some(msg) = msg {
+            self.reply_mode = ReplyMode::Edit(msg)
+        };
         self
     }
 
@@ -100,15 +109,28 @@ impl<'a> ResponseHelper<'a> {
         };
         for message in self.response.clone() {
             sleep(Duration::from_millis(300)).await;
-            let typing = channel.start_typing(&self.ctx.http);
+            self.start_typing().await;
 
             sleep(Duration::from_millis((message.len().isqrt() * 50) as u64)).await;
-            typing.stop();
             match &self.reply_mode {
-                ReplyMode::NoReply => channel.say(&self.ctx.http, message).await?,
-                ReplyMode::Reply(msg) => msg.reply(&self.ctx.http, message).await?,
-                ReplyMode::PingReply(msg) => msg.reply_ping(&self.ctx.http, message).await?,
-                ReplyMode::Dm => channel.say(&self.ctx.http, message).await?,
+                ReplyMode::NoReply => {
+                    self.latest_message = Some(channel.say(&self.ctx.http, message).await?);
+                }
+                ReplyMode::Reply(msg) => {
+                    self.latest_message = Some(msg.reply(&self.ctx.http, message).await?);
+                }
+                ReplyMode::PingReply(msg) => {
+                    self.latest_message = Some(msg.reply_ping(&self.ctx.http, message).await?);
+                }
+                ReplyMode::Edit(msg) => {
+                    msg.clone()
+                        .edit(&self.ctx.http, EditMessage::new().content(message))
+                        .await?;
+                    self.latest_message = Some(msg.clone());
+                }
+                ReplyMode::Dm => {
+                    self.latest_message = Some(channel.say(&self.ctx.http, message).await?);
+                }
             };
             // clear reply mode so it only applies to the first message
             if let ReplyMode::Dm = self.reply_mode {
@@ -117,6 +139,8 @@ impl<'a> ResponseHelper<'a> {
                 self.reply_mode = ReplyMode::NoReply;
             }
         }
+        self.stop_typing().await;
+
         self.response.clear();
         Ok(())
     }
@@ -125,10 +149,10 @@ impl<'a> ResponseHelper<'a> {
     ///
     /// Not typically needed, as [`say`](#method.say) will start typing automatically, but can be useful if you want to start typing
     /// before beginning a time-consuming operation in order to let the user know that something is happening.
-    pub async fn start_typing(mut self) -> Self {
+    pub async fn start_typing(&mut self) {
         match self.get_channel().await {
             Ok(channel) => {
-                if let Some(typing) = self.typing {
+                if let Some(typing) = self.typing.take() {
                     typing.stop();
                 }
                 self.typing = Some(channel.start_typing(&self.ctx.http));
@@ -137,23 +161,24 @@ impl<'a> ResponseHelper<'a> {
                 debug!("Failed to start typing: {}", err);
             }
         };
-        self
     }
 
     /// Stop typing, failing silently.
-    pub async fn stop_typing(mut self) -> Self {
-        if let Some(typing) = self.typing {
+    pub async fn stop_typing(&mut self) {
+        if let Some(typing) = self.typing.take() {
             typing.stop();
-            self.typing = None;
         }
-        self
     }
 
-    async fn get_channel(&mut self) -> Result<serenity::all::ChannelId> {
+    pub async fn get_channel(&mut self) -> Result<serenity::all::ChannelId> {
         Ok(match self.reply_mode {
             ReplyMode::Dm => self.usr.create_dm_channel(&self.ctx.http).await?.into(),
             _ => self.msg.channel_id,
         })
+    }
+
+    pub fn latest_message(&self) -> Option<&serenity::all::Message> {
+        self.latest_message.as_ref()
     }
 }
 
@@ -162,5 +187,14 @@ enum ReplyMode {
     NoReply,
     Reply(Message),
     PingReply(Message),
+    Edit(Message),
     Dm,
+}
+
+impl Drop for ResponseHelper<'_> {
+    fn drop(&mut self) {
+        if let Some(typing) = self.typing.take() {
+            typing.stop();
+        }
+    }
 }
