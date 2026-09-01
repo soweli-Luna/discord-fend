@@ -8,7 +8,7 @@ use tokio::{
 
 use crate::event_handler::command::commands::{Command, Parse};
 
-mod commands;
+pub mod commands;
 
 #[derive(Clone)]
 struct CommandInfo {
@@ -26,11 +26,11 @@ const COMMAND_PREFIX: &str = "~";
 /// Tries to find a command from a message, taking the prefix into account.
 /// Checks the user profile to see what prefix types they use.
 /// Returns `None` if no command was found, otherwise returns `(command, args)`
-pub async fn try_find_command(msg: &serenity::all::Message) -> Option<(Command, Vec<String>)> {
+pub async fn try_find_command(msg: &str) -> Option<(Command, Vec<String>)> {
     // !!! this function runs for EVERY message received, so it should finish as quickly as possible !!!
 
     // for now we'll only listen to `!`
-    if let Some(content) = msg.content.strip_prefix(COMMAND_PREFIX) {
+    if let Some(content) = msg.strip_prefix(COMMAND_PREFIX) {
         // only if prefix is not followed by whitespace
         if content.strip_prefix(char::is_whitespace).is_none() {
             let mut args: Vec<String> = content.split_whitespace().map(String::from).collect();

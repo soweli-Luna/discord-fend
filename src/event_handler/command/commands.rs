@@ -1,6 +1,6 @@
 use documented::{DocumentedFieldsOpt, DocumentedVariantsOpt};
 
-#[derive(Debug, Clone, DocumentedFieldsOpt, DocumentedVariantsOpt)]
+#[derive(Debug, Clone, DocumentedFieldsOpt, DocumentedVariantsOpt, PartialEq)]
 // #[warn(clippy::missing_docs_in_private_items)]
 pub enum Command {
     /// **fend** \[EXPRESSION\]
@@ -87,7 +87,7 @@ impl Command {
         args: Vec<String>,
     ) {
         match self {
-            Command::Fend => fend::cmd(usr, msg, args).await,
+            Command::Fend => fend::cmd(usr, msg, args, None).await,
             Command::ClearContext => fend::clear_context(usr, msg).await,
             Command::Help => help::cmd(usr, msg, args).await,
             Command::Uptime => uptime::cmd(usr, msg, args).await,
@@ -100,6 +100,6 @@ pub trait Parse: Sized {
     fn try_parse(content: &mut Vec<String>) -> Option<Self>;
 }
 
-mod fend;
+pub mod fend;
 mod help;
 mod uptime;
