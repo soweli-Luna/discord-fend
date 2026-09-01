@@ -17,10 +17,6 @@ pub enum Command {
     ///
     /// This command has a number of special features:
     ///
-    /// - ANSI color highlighting
-    ///
-    /// -# (does not currently render properly on mobile)
-    ///
     /// - Interactive REPL sessions
     ///
     /// -# (type `~fend` with no arguments, and the bot will listen to every message you send for a while)
@@ -55,17 +51,7 @@ pub enum Command {
     ///
     /// Lists all commands, or details about a specific command if one or more is provided
     Help,
-    /// **uptime**
-    ///
-    /// ---
-    ///
-    /// Displays the uptime of the bot
-    Uptime,
-    /// **version**
-    ///
-    /// ---
-    ///
-    /// Displays the version of the bot
+    Uptime, // no docs means it will be hidden from the help command
     Version,
 }
 impl Parse for Command {
