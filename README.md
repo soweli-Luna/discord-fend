@@ -1,6 +1,8 @@
 # discord-fend
 A discord bot for the arbitrary-precision unit-aware calculator [fend](https://github.com/printfn/fend)
 
+<img width="409" height="279" alt="image" src="https://github.com/user-attachments/assets/b1f3a080-8bd9-4c8e-b889-f48db62580bd" />
+
 Read fend's [manual](https://printfn.github.io/fend/documentation/) for detailed usage information
 
 ## Installation
@@ -25,3 +27,4 @@ Copy `.env.example` to `.env` and fill the fields, then simply run it via `cargo
 
 Note: Run with `--features debug` to enable debug printing.
 (This is mostly used in development, and might not have much useful information)
+
