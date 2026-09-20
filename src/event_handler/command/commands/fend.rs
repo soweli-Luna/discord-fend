@@ -1,4 +1,4 @@
-use std::{char, format, sync::LazyLock, todo, vec};
+use std::{char, format, sync::LazyLock, vec};
 
 use circular_buffer::FixedCircularBuffer;
 use fend_core::SpanRef;
@@ -194,7 +194,7 @@ pub async fn cmd(
 }
 
 pub async fn interaction_cmd(command: serenity::all::CommandInteraction) -> String {
-    if let Some(CommandDataOption { name, value, .. }) = command.data.options.get(0)
+    if let Some(CommandDataOption { name, value, .. }) = command.data.options.first()
         && name == "expression"
         && let CommandDataOptionValue::String(expression) = value
     {
@@ -217,7 +217,7 @@ pub async fn interaction_cmd(command: serenity::all::CommandInteraction) -> Stri
         .unwrap_or_else(|_| Ok(("Operation timed out.".to_string(), None)))
         .unwrap_or_else(|err| (format!("Error: {}", err), None));
 
-        return response;
+        response
     } else {
         "Invalid arguments.".to_string()
     }

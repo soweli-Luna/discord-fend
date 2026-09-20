@@ -1,7 +1,4 @@
-use std::todo;
-
 use documented::{DocumentedFieldsOpt, DocumentedVariantsOpt};
-use serenity::all::{CommandOptionType, CreateCommand, CreateCommandOption};
 
 use crate::response_helper::ResponseHelper;
 
