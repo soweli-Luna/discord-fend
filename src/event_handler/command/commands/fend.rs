@@ -198,7 +198,11 @@ pub async fn interaction_cmd(command: serenity::all::CommandInteraction) -> Stri
         && name == "expression"
         && let CommandDataOptionValue::String(expression) = value
     {
-        let lines = vec![expression.to_string()];
+        let lines = expression
+            .lines()
+            .map(String::from)
+            .filter(|l| !l.trim_matches(char::is_whitespace).is_empty())
+            .collect::<Vec<_>>();
 
         let mut fend_context = fend_core::Context::new();
         fend_context.set_output_mode_terminal();
