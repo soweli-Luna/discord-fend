@@ -16,6 +16,7 @@ The features that are working currently, and that I hope to get working later:
 - [x] Context retention between steps of multi-line prompts, and multi-message REPL sessions
 - [x] Temporary context retention between prompts in a channel
 - [x] Edit listening
+- [x] Slash commands
 - [ ] Exchange rates
 - [ ] Time and date
 

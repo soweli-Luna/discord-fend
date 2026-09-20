@@ -95,6 +95,6 @@ pub trait Parse: Sized {
 }
 
 pub mod fend;
-mod help;
-mod uptime;
-mod version;
+pub mod help;
+pub mod uptime;
+pub mod version;

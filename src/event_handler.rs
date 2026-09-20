@@ -1,11 +1,14 @@
 use std::{
-    eprintln,
+    eprintln, print,
     sync::{LazyLock, OnceLock},
 };
 
 use circular_buffer::FixedCircularBuffer;
 use serenity::{
-    all::{Context, EventHandler, Message, MessageUpdateEvent, Ready},
+    all::{
+        Command, Context, CreateInteractionResponse, CreateInteractionResponseMessage,
+        EventHandler, Interaction, Message, MessageUpdateEvent, Ready,
+    },
     async_trait,
 };
 use tokio::sync::RwLock;
@@ -100,6 +103,20 @@ impl EventHandler for Handler {
         };
     }
 
+    async fn interaction_create(&self, ctx: Context, interaction: serenity::all::Interaction) {
+        if let Interaction::Command(command) = interaction {
+            let command_response = command::handle_interaction(command.clone())
+                .await
+                .unwrap_or("Failed to handle command".to_string());
+
+            let data = CreateInteractionResponseMessage::new().content(command_response);
+            let builder = CreateInteractionResponse::Message(data);
+            if let Err(why) = command.create_response(&ctx.http, builder).await {
+                eprintln!("Cannot respond to slash command: {why}");
+            }
+        }
+    }
+
     // Set a handler to be called on the `ready` event. This is called when a shard is booted, and
     // a READY payload is sent by Discord. This payload contains data like the current user's guild
     // Ids, current user data, private channels, and more.
@@ -107,7 +124,22 @@ impl EventHandler for Handler {
     // In this case, just print what the current user's username is.
     async fn ready(&self, ctx: Context, ready: Ready) {
         eprintln!("{} is connected!", ready.user.name);
-        CTX.set(ctx)
-            .unwrap_or_else(|_| eprintln!("Received additional `ready` event"))
+        CTX.set(ctx.clone())
+            .unwrap_or_else(|_| eprintln!("Received additional `ready` event"));
+
+        if let Err(err) = Command::set_global_commands(
+            &CTX.get().unwrap().http,
+            vec![
+                commands::fend::register(),
+                // commands::help::register(),
+                // commands::uptime::register(),
+                // commands::ping::register(),
+                // commands::version::register(),
+            ],
+        )
+        .await
+        {
+            eprintln!("Failed to set global commands: {}", err);
+        }
     }
 }

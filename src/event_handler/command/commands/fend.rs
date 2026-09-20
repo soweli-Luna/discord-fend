@@ -1,8 +1,8 @@
-use std::{char, format, sync::LazyLock, vec};
+use std::{char, format, sync::LazyLock, todo, vec};
 
 use circular_buffer::FixedCircularBuffer;
 use fend_core::SpanRef;
-use serenity::all::ChannelId;
+use serenity::all::{ChannelId, CommandDataOption, CommandDataOptionValue};
 use tokio::sync::RwLock;
 
 use crate::{
@@ -193,6 +193,32 @@ pub async fn cmd(
     }
 }
 
+pub async fn interaction_cmd(command: serenity::all::CommandInteraction) -> String {
+    if let Some(CommandDataOption { name, value, .. }) = command.data.options.get(0)
+        && name == "expression"
+        && let CommandDataOptionValue::String(expression) = value
+    {
+        let lines = vec![expression.to_string()];
+
+        let mut fend_context = fend_core::Context::new();
+        fend_context.set_output_mode_terminal();
+
+        let (response, _fend_context) = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            tokio::task::spawn_blocking(move || {
+                (fend_run(lines, &mut fend_context), Some(fend_context))
+            }),
+        )
+        .await
+        .unwrap_or_else(|_| Ok(("Operation timed out.".to_string(), None)))
+        .unwrap_or_else(|err| (format!("Error: {}", err), None));
+
+        return response;
+    } else {
+        "Invalid arguments.".to_string()
+    }
+}
+
 /// Run a series of lines in the given context, returning the output as a string
 ///
 /// Will block
@@ -265,4 +291,21 @@ pub async fn clear_context(usr: &serenity::all::User, msg: &serenity::all::Messa
         let mut bot_response = ResponseHelper::new(usr, msg);
         bot_response.push("No context to clear").say().await;
     }
+}
+
+pub fn register() -> serenity::all::CreateCommand {
+    serenity::all::CreateCommand::new("fend")
+        .description("Evaluate a fend expression")
+        .add_option(
+            serenity::all::CreateCommandOption::new(
+                serenity::all::CommandOptionType::String,
+                "expression",
+                "Expression to evaluate",
+            )
+            .required(true),
+        )
+        .add_context(serenity::all::InteractionContext::PrivateChannel)
+        .add_context(serenity::all::InteractionContext::BotDm)
+        .add_context(serenity::all::InteractionContext::Guild)
+        .add_integration_type(serenity::all::InstallationContext::User)
 }

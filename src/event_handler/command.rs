@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::LazyLock, time::Duration};
 
-use serenity::all::{ChannelId, Message};
+use serenity::all::{ChannelId, CommandInteraction, Message};
 use tokio::{
     sync::{RwLock, mpsc},
     time::timeout,
@@ -84,4 +84,13 @@ pub async fn handle(
         .send(CommandInfo { command, args, msg })
         .await
         .map_err(|err| eprintln!("Error sending command to thread: {}", err));
+}
+
+pub async fn handle_interaction(command: CommandInteraction) -> Option<String> {
+    let command_name = command.data.name.clone();
+
+    match command_name.as_str() {
+        "fend" => Some(commands::fend::interaction_cmd(command).await),
+        _ => None,
+    }
 }
