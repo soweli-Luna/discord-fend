@@ -58,6 +58,12 @@ impl EventHandler for Handler {
         new: Option<Message>,
         event: MessageUpdateEvent,
     ) {
+        // FIXME: this is a total hack, ideally there should be logic in `command`
+        // to handle this like we have `command::handle` and `interactive_session::handle`
+
+        // instead, i was lazy and theres only one command that listens for updates,
+        // so i just directly match for it and call it here
+
         let msg_id = event.id;
         if let Some(user) = event.author {
             if user.bot {
