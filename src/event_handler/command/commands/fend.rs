@@ -1,7 +1,12 @@
-use std::{char, format, sync::LazyLock, vec};
+use std::{
+    char, format,
+    sync::LazyLock,
+    time::{Duration, Instant},
+    vec,
+};
 
 use circular_buffer::FixedCircularBuffer;
-use fend_core::SpanRef;
+use fend_core::{Interrupt, SpanRef};
 use serenity::all::{ChannelId, CommandDataOption, CommandDataOptionValue};
 use tokio::sync::RwLock;
 
@@ -71,34 +76,27 @@ pub async fn cmd(
                 let mut bot_response = bot_response.reply_to(user_response.clone());
                 bot_response.start_typing().await;
 
-                let mut passed_fend_context = fend_context.clone();
-                let result = tokio::time::timeout(
-                    std::time::Duration::from_secs(30),
-                    tokio::task::spawn_blocking(move || {
-                        let lines = user_response
-                            .content
-                            .replace(['`'], " ")
-                            .lines()
-                            .map(String::from)
-                            .collect::<Vec<_>>();
+                let lines = user_response
+                    .content
+                    .replace(['`'], " ")
+                    .lines()
+                    .map(String::from)
+                    .collect::<Vec<_>>();
 
-                        (
-                            fend_run(lines, &mut passed_fend_context),
-                            passed_fend_context,
-                        )
-                    }),
-                )
+                let mut passed_fend_context = fend_context.clone();
+                let result = tokio::task::spawn_blocking(move || {
+                    (
+                        fend_run(lines, &mut passed_fend_context),
+                        passed_fend_context,
+                    )
+                })
                 .await;
 
                 let (response, returned_fend_context) = match result {
-                    Ok(Ok((response, fend_context))) => (response, fend_context),
-                    Ok(Err(err)) => {
+                    Ok((response, fend_context)) => (response, fend_context),
+                    Err(err) => {
                         bot_response.push(format!("Error: {}", err)).say().await;
                         continue;
-                    }
-                    Err(_) => {
-                        bot_response.push("Operation timed out.").say().await;
-                        break;
                     }
                 };
 
@@ -143,14 +141,10 @@ pub async fn cmd(
             }
         };
 
-        let (response, fend_context) = tokio::time::timeout(
-            std::time::Duration::from_secs(30),
-            tokio::task::spawn_blocking(move || {
-                (fend_run(lines, &mut fend_context), Some(fend_context))
-            }),
-        )
+        let (response, fend_context) = tokio::task::spawn_blocking(move || {
+            (fend_run(lines, &mut fend_context), Some(fend_context))
+        })
         .await
-        .unwrap_or_else(|_| Ok(("Operation timed out.".to_string(), None)))
         .unwrap_or_else(|err| (format!("Error: {}", err), None));
 
         // store the updated context in the buffer
@@ -207,19 +201,38 @@ pub async fn interaction_cmd(command: serenity::all::CommandInteraction) -> Stri
         let mut fend_context = fend_core::Context::new();
         fend_context.set_output_mode_terminal();
 
-        let (response, _fend_context) = tokio::time::timeout(
-            std::time::Duration::from_secs(30),
-            tokio::task::spawn_blocking(move || {
-                (fend_run(lines, &mut fend_context), Some(fend_context))
-            }),
-        )
+        let (response, _fend_context) = tokio::task::spawn_blocking(move || {
+            (fend_run(lines, &mut fend_context), Some(fend_context))
+        })
         .await
-        .unwrap_or_else(|_| Ok(("Operation timed out.".to_string(), None)))
         .unwrap_or_else(|err| (format!("Error: {}", err), None));
 
         response
     } else {
         "Invalid arguments.".to_string()
+    }
+}
+
+struct TimeoutToken {
+    timeout_at: Instant,
+}
+impl TimeoutToken {
+    pub fn new() -> Self {
+        let now = Instant::now();
+
+        let timeout_time = now.checked_add(Duration::from_secs(30));
+
+        Self {
+            timeout_at: match timeout_time {
+                Some(timeout_time) => timeout_time,
+                None => now,
+            },
+        }
+    }
+}
+impl Interrupt for TimeoutToken {
+    fn should_interrupt(&self) -> bool {
+        self.timeout_at <= Instant::now()
     }
 }
 
@@ -236,7 +249,8 @@ fn fend_run(lines: Vec<String>, context: &mut fend_core::Context) -> String {
             result_buf.push_str(&format!("> {}\n", line.trim()));
         }
 
-        let result = match fend_core::evaluate(&line, context) {
+        let result = match fend_core::evaluate_with_interrupt(&line, context, &TimeoutToken::new())
+        {
             Ok(result) => render_spans(result.get_main_result_spans()),
             Err(err) => ansi_color::format(&err, vec![ansi_color::Style::RedForeground]),
         };
