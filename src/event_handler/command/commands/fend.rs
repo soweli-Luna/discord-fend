@@ -86,7 +86,7 @@ pub async fn cmd(
                 let mut passed_fend_context = fend_context.clone();
                 let result = tokio::task::spawn_blocking(move || {
                     (
-                        fend_run(lines, &mut passed_fend_context),
+                        fend_run(lines, &mut passed_fend_context, false),
                         passed_fend_context,
                     )
                 })
@@ -142,7 +142,10 @@ pub async fn cmd(
         };
 
         let (response, fend_context) = tokio::task::spawn_blocking(move || {
-            (fend_run(lines, &mut fend_context), Some(fend_context))
+            (
+                fend_run(lines, &mut fend_context, false),
+                Some(fend_context),
+            )
         })
         .await
         .unwrap_or_else(|err| (format!("Error: {}", err), None));
@@ -202,7 +205,7 @@ pub async fn interaction_cmd(command: serenity::all::CommandInteraction) -> Stri
         fend_context.set_output_mode_terminal();
 
         let (response, _fend_context) = tokio::task::spawn_blocking(move || {
-            (fend_run(lines, &mut fend_context), Some(fend_context))
+            (fend_run(lines, &mut fend_context, true), Some(fend_context))
         })
         .await
         .unwrap_or_else(|err| (format!("Error: {}", err), None));
@@ -239,10 +242,11 @@ impl Interrupt for TimeoutToken {
 /// Run a series of lines in the given context, returning the output as a string
 ///
 /// Will block
-fn fend_run(lines: Vec<String>, context: &mut fend_core::Context) -> String {
+fn fend_run(lines: Vec<String>, context: &mut fend_core::Context, force_multiline: bool) -> String {
     let mut result_buf = String::new();
 
-    let multiline = lines.len() > 1;
+    // in multiline mode, print the prompt for each line so its easier to read
+    let multiline = lines.len() > 1 || force_multiline;
 
     for line in lines {
         if multiline {
