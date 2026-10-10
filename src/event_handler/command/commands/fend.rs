@@ -203,6 +203,7 @@ pub async fn interaction_cmd(command: serenity::all::CommandInteraction) -> Stri
 
         let mut fend_context = fend_core::Context::new();
         fend_context.set_output_mode_terminal();
+        fend_context.set_random_u32_fn(random_u32);
 
         let (response, _fend_context) = tokio::task::spawn_blocking(move || {
             (fend_run(lines, &mut fend_context, true), Some(fend_context))
@@ -291,7 +292,6 @@ fn render_spans<'a, T: Iterator<Item = SpanRef<'a>>>(spans: T) -> String {
         buf.push_str(&ansi_color::format(span.string(), style));
     }
 
-    // format!("```ansi\n{}\n```", buf).to_string()
     buf
 }
 
