@@ -295,7 +295,7 @@ dependencies = [
 
 [[package]]
 name = "discord-fend"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "circular-buffer",
  "documented",
